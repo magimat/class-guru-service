@@ -26,16 +26,17 @@ var users = [
 
 
 var jwtOptions = {}
-jwtOptions.jwtFromRequest = ExtractJwt.fromAuthHeaderWithScheme("Bearer");
-jwtOptions.secretOrKey = 'blah808doh!';
-jwtOptions.audience = 'demo'
-jwtOptions.issuer = 'magimat.ca'
+jwtOptions.jwtFromRequest = ExtractJwt.fromAuthHeader();
+jwtOptions.secretOrKey = 'testsecret';
+//jwtOptions.issuer = 'magimat.ca'
+ignoreExpiration = true
+jwtOptions.algorithms = ["HS256"]
 
 
 var strategy = new JwtStrategy(jwtOptions, function(jwt_payload, next) {
   console.log('payload received', jwt_payload);
   // usually this would be a database call:
-  var user = users[_.findIndex(users, {id: jwt_payload.user})];
+  var user = users[_.findIndex(users, {name: jwt_payload.user})];
   if (user) {
     next(null, user);
   } else {
@@ -68,12 +69,29 @@ app.get("/", function(req, res) {
 });
 
 
+
+app.get("/secret", passport.authenticate('jwt', { session: false }), function(req, res){
+  res.json("Success! You can not see this without a token");
+});
+
+
+app.get("/secretDebug",
+  function(req, res, next){
+    console.log(req.get('Authorization'));
+    next();
+  }, function(req, res){
+    res.json("debugging");
+});
+
+
+
+
+
 app.post("/login", function(req, res) {
   if(req.body.name && req.body.password){
     var name = req.body.name;
     var password = req.body.password;
   }
-
 
   // usually this would be a database call:
   var user = users[_.findIndex(users, {name: name})];
@@ -91,18 +109,7 @@ app.post("/login", function(req, res) {
   }
 });
 
-app.get("/secret", passport.authenticate('jwt', { session: false }), function(req, res){
-  res.json("Success! You can not see this without a token");
-});
 
-
-app.get("/secretDebug",
-  function(req, res, next){
-    console.log(req.get('Authorization'));
-    next();
-  }, function(req, res){
-    res.json("debugging");
-});
 
 
 app.listen(3000, function() {
