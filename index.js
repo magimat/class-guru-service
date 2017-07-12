@@ -1,118 +1,47 @@
-var _ = require("lodash");
 var express = require("express");
 var bodyParser = require("body-parser");
 var jwt = require('jsonwebtoken');
-
 var passport = require("passport");
 var passportJWT = require("passport-jwt");
-
 var ExtractJwt = passportJWT.ExtractJwt;
 var JwtStrategy = passportJWT.Strategy;
-
-
-
-var users = [
-  {
-    id: 1,
-    name: 'magi',
-    password: 'magi'
-  },
-  {
-    id: 2,
-    name: 'test',
-    password: 'test'
-  }
-];
+const MongoClient = require('mongodb').MongoClient
 
 
 var jwtOptions = {}
-jwtOptions.jwtFromRequest = ExtractJwt.fromAuthHeader();
-jwtOptions.secretOrKey = 'testsecret';
-//jwtOptions.issuer = 'magimat.ca'
-ignoreExpiration = true
+jwtOptions.jwtFromRequest = ExtractJwt.fromAuthHeaderWithScheme('Bearer');
+jwtOptions.secretOrKey = 'secret';
+jwtOptions.audience = 'class-guru'
+jwtOptions.issuer = 'magimat.ca'
 jwtOptions.algorithms = ["HS256"]
 
 
-var strategy = new JwtStrategy(jwtOptions, function(jwt_payload, next) {
+var strategy = new JwtStrategy(jwtOptions, function(jwt_payload, done) {
   console.log('payload received', jwt_payload);
-  // usually this would be a database call:
-  var user = users[_.findIndex(users, {name: jwt_payload.user})];
-  if (user) {
-    next(null, user);
-  } else {
-    next(null, false);
-  }
+  done(null, jwt_payload.user);
 });
 
 passport.use(strategy);
-
-
-
-
-
-
-
 var app = express();
 app.use(passport.initialize());
-
-// parse application/x-www-form-urlencoded
-// for easier testing with Postman or plain HTML forms
-app.use(bodyParser.urlencoded({
-  extended: true
-}));
-
-// parse application/json
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json())
 
-app.get("/", function(req, res) {
-  res.json({message: "Express is up!"});
-});
 
 
 
-app.get("/secret", passport.authenticate('jwt', { session: false }), function(req, res){
-  res.json("Success! You can not see this without a token");
-});
+var db
 
+MongoClient.connect('mongodb://magi:enirak@ds133922.mlab.com:33922/class-guru', (err, database) => {
+  if (err) return console.log(err)
+  db = database
 
-app.get("/secretDebug",
-  function(req, res, next){
-    console.log(req.get('Authorization'));
-    next();
-  }, function(req, res){
-    res.json("debugging");
-});
+  app.listen(3000, () => {
+    console.log('listening on 3000')
+  })
 
+  require('./routes.js')(app, db);
 
+})
 
-
-
-app.post("/login", function(req, res) {
-  if(req.body.name && req.body.password){
-    var name = req.body.name;
-    var password = req.body.password;
-  }
-
-  // usually this would be a database call:
-  var user = users[_.findIndex(users, {name: name})];
-  if( ! user ){
-    res.status(401).json({message:"no such user found"});
-  }
-
-  if(user.password === req.body.password) {
-    // from now on we'll identify the user by the id and the id is the only personalized value that goes into our token
-    var payload = {id: user.id};
-    var token = jwt.sign(payload, jwtOptions.secretOrKey);
-    res.json({message: "ok", token: token});
-  } else {
-    res.status(401).json({message:"passwords did not match"});
-  }
-});
-
-
-
-
-app.listen(3000, function() {
-  console.log("Express running");
-});
 
